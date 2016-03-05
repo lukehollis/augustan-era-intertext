@@ -1,4 +1,5 @@
 import pdb
+import itertools
 from concurrent import futures
 from db import mongo
 from cltk.text_reuse.text_reuse import TextReuse
@@ -39,24 +40,21 @@ class Intertext:
 
         print("Comparing texts:")
         # For each text to compare, compare it to every other text to compare besides itself
-        for i, text_a in enumerate(self.texts_to_compare):
-            if self.n_processes > 1:
-                # Create the process pool with the set number of processes
-                executor = futures.ProcessPoolExecutor(self.n_processes)
+        if self.n_processes > 1:
+            # Create the process pool with the set number of processes
+            executor = futures.ProcessPoolExecutor(self.n_processes)
 
-                # Create the queue of tasks to be run
-                futures_queue = [executor.submit(
-                                        self._compare_texts, text_a, text_b ) for j, text_b in enumerate(self.texts_to_compare) if i != j
-                                        ]
+            # Create the queue of tasks to be run
+            futures_queue = [executor.submit(
+                                    self._compare_texts, text_a, text_b ) for text_a, text_b in itertools.combinations(self.texts_to_compare, 2)
+                                    ]
 
-                # Wait for tasks to be run
-                futures.wait(futures_queue)
+            # Wait for tasks to be run
+            futures.wait(futures_queue)
 
-            else:
-                for j, text_b in enumerate(self.texts_to_compare):
-                    # Don't compare the text to itself
-                    if i != j:
-                            self._compare_texts(text_a, text_b)
+        else:
+            for text_a, text_b in itertools.combinations(self.texts_to_compare, 2):
+                self._compare_texts(text_a, text_b)
 
 
     def _compare_texts(self, text_a, text_b):
@@ -76,7 +74,7 @@ class Intertext:
         print(" -- comparing", text_a['author'], text_a['title'], "to", text_b['author'], text_b['title'])
 
         # Instantiate new TextReuse with metadata about both texts being compared
-        t = TextReuse(text_ref_a, text_ref_b)
+        t = TextReuse(text_ref_a, text_ref_b, sanitize_input=True)
 
         # Create comparisons from both texts
         comparisons = t.compare_sliding_window(text_a['text'], text_b['text'])
@@ -103,34 +101,32 @@ class Intertext:
         # For each comparison, save it to the database
         for comparison_list in comparisons:
             for comparison in comparison_list:
-                if comparison.ratio > self.significance_threshold:
-                    count += 1
-                    db.comparisons.insert({
-                                            'str_a' : comparison.str_a,
-                                            'str_b' : comparison.str_b,
-                                            'ratio' : comparison.ratio,
-                                            'author_a' : comparison.author_a,
-                                            'author_b' : comparison.author_b,
-                                            'work_a' : comparison.work_a,
-                                            'work_b' : comparison.work_b,
-                                            'subwork_a' : comparison.subwork_a,
-                                            'subwork_b' : comparison.subwork_b,
-                                            'text_n_a' : comparison.text_n_a,
-                                            'text_n_b' : comparison.text_n_b,
-                                            'language_a' : comparison.language_a,
-                                            'language_b' : comparison.language_b
-                                        })
+                db.comparisons.insert({
+                                        'str_a' : comparison.str_a,
+                                        'str_b' : comparison.str_b,
+                                        'ratio' : comparison.ratio,
+                                        'author_a' : comparison.author_a,
+                                        'author_b' : comparison.author_b,
+                                        'work_a' : comparison.work_a,
+                                        'work_b' : comparison.work_b,
+                                        'subwork_a' : comparison.subwork_a,
+                                        'subwork_b' : comparison.subwork_b,
+                                        'text_n_a' : comparison.text_n_a,
+                                        'text_n_b' : comparison.text_n_b,
+                                        'language_a' : comparison.language_a,
+                                        'language_b' : comparison.language_b
+                                    })
 
-        print(" -- -- saved", count, "comparisons")
+        print(" -- -- saved", len(comparisons), "comparisons")
 
         return
 
 if __name__ == "__main__":
-    text_dbname = "perseus_corpora"
+    text_dbname = "perseus_corpora_updated"
     comparison_dbname = "augustan_era_intertext"
 
     # Example workflow:
-    i = Intertext(AUTHORS, text_dbname, comparison_dbname, 7)
+    i = Intertext(AUTHORS, text_dbname, comparison_dbname, 4)
     i.load_texts()
     i.compare_texts()
     i.export_comparisons()
