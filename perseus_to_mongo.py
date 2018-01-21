@@ -13,7 +13,7 @@ class PerseusToMongo:
 								os.path.join(os.path.expanduser("~"), 'cltk_data/greek/text/greek_text_perseus'),
 								os.path.join(os.path.expanduser("~"), 'cltk_data/latin/text/latin_text_perseus')
 							]
-		self.import_db = 'perseus_corpora_updated'
+		self.import_db = 'perseus_corpora'
 
 		# empty the text collection
 		db = mongo(self.import_db)
