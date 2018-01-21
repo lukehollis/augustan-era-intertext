@@ -130,7 +130,7 @@ if __name__ == "__main__":
     comparison_dbname = "augustan_era_intertext"
 
     # Example workflow:
-    i = Intertext(AUTHORS, text_dbname, comparison_dbname, 7)
+    i = Intertext(AUTHORS, text_dbname, comparison_dbname, 5)
     i.load_texts()
     i.compare_texts()
     i.export_comparisons()
